@@ -29,26 +29,14 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l5xx_hal.h"
 
-#include "stm32l5xx_ll_ucpd.h"
-#include "stm32l5xx_ll_bus.h"
-#include "stm32l5xx_ll_cortex.h"
-#include "stm32l5xx_ll_rcc.h"
-#include "stm32l5xx_ll_system.h"
-#include "stm32l5xx_ll_utils.h"
-#include "stm32l5xx_ll_pwr.h"
-#include "stm32l5xx_ll_gpio.h"
-#include "stm32l5xx_ll_dma.h"
-
-#include "stm32l5xx_ll_exti.h"
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "FreeRTOS.h"
 #include "task.h"
-#include "timers.h"
-#include "queue.h"
-#include "semphr.h"
-#include "event_groups.h"
+//#include "timers.h"
+//#include "queue.h"
+//#include "semphr.h"
+//#include "event_groups.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -65,8 +53,6 @@ extern "C" {
 /* USER CODE BEGIN EM */
 
 /* USER CODE END EM */
-
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
@@ -121,6 +107,10 @@ void Error_Handler(void);
 #define CTP_RST_Pin GPIO_PIN_15
 #define CTP_RST_GPIO_Port GPIOF
 /* USER CODE BEGIN Private defines */
+
+
+
+
 
 /* USER CODE END Private defines */
 

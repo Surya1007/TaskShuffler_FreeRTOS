@@ -149,6 +149,49 @@ configIDLE_TASK_NAME in FreeRTOSConfig.h. */
 
 	/*-----------------------------------------------------------*/
 
+	/*******************************Modified Source Code **************************************/
+
+	#define taskSELECT_RANDOM_TASK()																	\
+	{																									\
+		UBaseType_t uxTopPriority = uxTopReadyPriority;													\
+		UBaseType_t tempPriority = uxTopReadyPriority;													\
+		UBaseType_t candidate_list[uxTopReadyPriority];													\
+		volatile uint8_t index = 0;																		\
+		/* Loop through the sorted ready list */														\
+		while(tempPriority != 0)																		\
+		{																								\
+			if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )							\
+			{																							\
+			}																							\
+			else																						\
+			{																							\
+				listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ tempPriority ] ) );	\
+				/* If Priority of task >= M_task */														\
+				if (tempPriority >= (pxCurrentTCB -> Min_Inv_Priority))									\
+				{																						\
+					/* Add task to candidate list */													\
+					candidate_list[index] = tempPriority;												\
+					++index;																			\
+				}																						\
+				/* If v_task <= 0 */																	\
+				if ((pxCurrentTCB -> Remaining_Inv_Budget) <= 0)										\
+				{																						\
+					/* Break from the loop */															\
+					break;																				\
+				}																						\
+			}																							\
+			--tempPriority;																				\
+		}																								\
+		/* Select random task from the candidate list */												\
+		uxTopPriority = (rand() % (index - 0 + 1)) + 0;													\
+		/* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of						\
+		the	same priority get an equal share of the processor time. */									\
+		listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) );			\
+		uxTopReadyPriority = uxTopPriority;																\
+	} /* taskSELECT_RANDOM_TASK */
+
+	/**************************End Modified Source Code **************************************/
+
 	/* Define away taskRESET_READY_PRIORITY() and portRESET_READY_PRIORITY() as
 	they are only required when a port optimised method of task selection is
 	being used. */
@@ -326,6 +369,12 @@ typedef struct tskTaskControlBlock 			/* The old naming convention is used to pr
 		int iTaskErrno;
 	#endif
 
+	#if ( INCLUDE_TaskShuffler == 1)
+		TickType_t WC_Max_Inv_Budget;
+		volatile TickType_t Remaining_Inv_Budget;
+		UBaseType_t Min_Inv_Priority;
+	#endif
+	
 } tskTCB;
 
 /* The old tskTCB name is maintained above then typedefed to the new TCB_t name
@@ -346,6 +395,14 @@ PRIVILEGED_DATA static List_t xDelayedTaskList2;						/*< Delayed tasks (two lis
 PRIVILEGED_DATA static List_t * volatile pxDelayedTaskList;				/*< Points to the delayed task list currently being used. */
 PRIVILEGED_DATA static List_t * volatile pxOverflowDelayedTaskList;		/*< Points to the delayed task list currently being used to hold tasks that have overflowed the current tick count. */
 PRIVILEGED_DATA static List_t xPendingReadyList;						/*< Tasks that have been readied while the scheduler was suspended.  They will be moved to the ready list when the scheduler is resumed. */
+
+/*------------------------Modified Source Code------------------------*/
+TickType_t Time_to_switch                                           = ( TickType_t  ) 0U;
+//TickType_t WC_Max_Inv_Budgets[3] 									= {3, 2, 1};
+//TickType_t Remaining_Inv_Budgets[3] 								= {0, 0, 0};
+//UBaseType_t Min_Inv_Priorities[3] 									= {0, 0, 0};
+TaskHandle_t task_running[100];
+/*---------------------End Modified Source Code-----------------------*/
 
 #if( INCLUDE_vTaskDelete == 1 )
 
@@ -2714,6 +2771,13 @@ BaseType_t xSwitchRequired = pdFALSE;
 	Increments the tick then checks to see if the new tick value will cause any
 	tasks to be unblocked. */
 	traceTASK_INCREMENT_TICK( xTickCount );
+	
+	
+	static uint32_t index = 0;
+	task_running[index] = xTaskGetCurrentTaskHandle();
+	index++;
+	
+	
 	if( uxSchedulerSuspended == ( UBaseType_t ) pdFALSE )
 	{
 		/* Minor optimisation.  The tick count cannot change in this
@@ -2801,14 +2865,46 @@ BaseType_t xSwitchRequired = pdFALSE;
 						only be performed if the unblocked task has a
 						priority that is equal to or higher than the
 						currently executing task. */
-						if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+						
+						/*-----------------------------Modified Source Code-----------------------------*/
+						#if (INCLUDE_TaskShuffler == 1)
 						{
-							xSwitchRequired = pdTRUE;
+							if (Time_to_switch <= 0)
+							{
+								xSwitchRequired = pdTRUE;
+							}
+							else
+							{
+								mtCOVERAGE_TEST_MARKER();
+							}
+							
 						}
-						else
+						#endif
+						/*----------------------End Here Modified Source Code---------------------------*/
+						/*
 						{
-							mtCOVERAGE_TEST_MARKER();
+							if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+							{
+								xSwitchRequired = pdTRUE;
+							}
+							else
+							{
+								mtCOVERAGE_TEST_MARKER();
+							}
 						}
+						 */
+						#if (INCLUDE_TaskShuffler == 0)
+						{
+							if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+							{
+								xSwitchRequired = pdTRUE;
+							}
+							else
+							{
+								mtCOVERAGE_TEST_MARKER();
+							}
+						}
+						#endif
 					}
 					#endif /* configUSE_PREEMPTION */
 				}
@@ -2871,7 +2967,7 @@ BaseType_t xSwitchRequired = pdFALSE;
 		}
 		#endif
 	}
-
+	
 	return xSwitchRequired;
 }
 /*-----------------------------------------------------------*/
@@ -3038,7 +3134,43 @@ void vTaskSwitchContext( void )
 
 		/* Select a new task to run using either the generic C or port
 		optimised asm code. */
-		taskSELECT_HIGHEST_PRIORITY_TASK(); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+		#if (INCLUDE_TaskShuffler == 0)
+		{
+			taskSELECT_HIGHEST_PRIORITY_TASK(); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+		}
+		#endif
+		/*---------------------------------------------Modified Source Code----------------------------------------------*/
+		#if (INCLUDE_TaskShuffler == 1)
+		{
+			taskSELECT_RANDOM_TASK(); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+			
+			UBaseType_t tempPriority = uxTopReadyPriority;
+			TickType_t minimum_inversion_budget_remaining = (TickType_t) 10000U;
+			while(tempPriority < uxTopReadyPriority)
+			{
+				if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
+				{
+				}
+				else
+				{
+					if (Remaining_Inv_Budgets[tempPriority] < minimum_inversion_budget_remaining)
+					{
+						minimum_inversion_budget_remaining = Remaining_Inv_Budgets[tempPriority];
+					}
+				}
+				--tempPriority;
+			}
+			if (tempPriority == uxTopReadyPriority)
+			{
+				Time_to_switch = (TickType_t) 1U;
+			}
+			else
+			{
+				Time_to_switch = minimum_inversion_budget_remaining;
+			}
+		}
+		#endif
+		/*---------------------------------------------Modified Source Code----------------------------------------------*/
 		traceTASK_SWITCHED_IN();
 
 		/* After the new task is switched in, update the global errno. */

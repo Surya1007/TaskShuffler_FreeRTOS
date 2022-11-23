@@ -76,6 +76,15 @@ extern "C" {
  * within FreeRTOSConfig.h.
  */
 
+
+
+/****************************************** Modified Source Code******************************************/
+#ifndef INCLUDE_TaskShuffler
+	#define INCLUDE_TaskShuffler				 0
+#endif
+/**************************************End Modified Source Code******************************************/
+
+
 #ifndef configMINIMAL_STACK_SIZE
 	#error Missing definition:  configMINIMAL_STACK_SIZE must be defined in FreeRTOSConfig.h.  configMINIMAL_STACK_SIZE defines the size (in words) of the stack allocated to the idle task.  Refer to the demo project provided for your port for a suitable value.
 #endif
@@ -1156,6 +1165,12 @@ typedef struct xSTATIC_TCB
 	#endif
 	#if ( configUSE_POSIX_ERRNO == 1 )
 		int				iDummy22;
+	#endif
+	
+	#if ( INCLUDE_TaskShuffler == 1 )
+		TickType_t	uDummy23;
+		TickType_t uDummy24;
+		UBaseType_t uDummy25;
 	#endif
 } StaticTask_t;
 
