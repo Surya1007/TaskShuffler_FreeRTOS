@@ -2534,6 +2534,13 @@ TaskHandle_t pvTaskIncrementMutexHeldCount( void ) PRIVILEGED_FUNCTION;
 void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNCTION;
 
 
+
+#if ( INCLUDE_TaskShuffler == 1 )
+	void vTaskSetMinInvPriority(TaskHandle_t xTask, UBaseType_t MIP) PRIVILEGED_FUNCTION;
+	void vTaskSetWCMaxInvBudget(TaskHandle_t xTask, TickType_t MIB) PRIVILEGED_FUNCTION;
+	void vTaskResetRemainingBudget(TaskHandle_t xTask) PRIVILEGED_FUNCTION;
+#endif
+
 #ifdef __cplusplus
 }
 #endif

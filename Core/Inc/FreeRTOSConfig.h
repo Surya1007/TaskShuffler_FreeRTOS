@@ -128,7 +128,7 @@ to exclude the API function. */
 
 
 /****************************************** Modified Source Code******************************************/
-#define INCLUDE_TaskShuffler				 0
+#define INCLUDE_TaskShuffler				 1
 /**************************************End Modified Source Code******************************************/
 
 /*

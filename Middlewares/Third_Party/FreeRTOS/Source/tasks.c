@@ -3146,6 +3146,7 @@ void vTaskSwitchContext( void )
 			
 			UBaseType_t tempPriority = uxTopReadyPriority;
 			TickType_t minimum_inversion_budget_remaining = (TickType_t) 10000U;
+			TCB_t * volatile TCB_checking = NULL;
 			while(tempPriority < uxTopReadyPriority)
 			{
 				if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
@@ -3153,9 +3154,10 @@ void vTaskSwitchContext( void )
 				}
 				else
 				{
-					if (Remaining_Inv_Budgets[tempPriority] < minimum_inversion_budget_remaining)
+					listGET_OWNER_OF_NEXT_ENTRY( TCB_checking, &( pxReadyTasksLists[ tempPriority ] ) );
+					if ((TCB_checking -> Remaining_Inv_Budget) < minimum_inversion_budget_remaining)
 					{
-						minimum_inversion_budget_remaining = Remaining_Inv_Budgets[tempPriority];
+						minimum_inversion_budget_remaining = (TCB_checking -> Remaining_Inv_Budget);//Remaining_Inv_Budgets[tempPriority];
 					}
 				}
 				--tempPriority;
@@ -5420,6 +5422,29 @@ const TickType_t xConstTickCount = xTickCount;
 /* Code below here allows additional code to be inserted into this source file,
 especially where access to file scope functions and data is needed (for example
 when performing module tests). */
+
+
+void vTaskSetMinInvPriority(TaskHandle_t xTask, UBaseType_t MIP)
+{
+	TCB_t *TaskTCB;
+	TaskTCB = prvGetTCBFromHandle(xTask);
+	TaskTCB -> Min_Inv_Priority = MIP;
+}
+
+void vTaskSetWCMaxInvBudget(TaskHandle_t xTask, TickType_t MIB)
+{
+	TCB_t *TaskTCB;
+	TaskTCB = prvGetTCBFromHandle(xTask);
+	TaskTCB -> WC_Max_Inv_Budget = MIB;
+	vTaskResetRemainingBudget(xTask);
+}
+
+void vTaskResetRemainingBudget(TaskHandle_t xTask)
+{
+	TCB_t *TaskTCB;
+	TaskTCB = prvGetTCBFromHandle(xTask);
+	TaskTCB -> Remaining_Inv_Budget = (TaskTCB -> WC_Max_Inv_Budget);
+}
 
 #ifdef FREERTOS_MODULE_TEST
 	#include "tasks_test_access_functions.h"

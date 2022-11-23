@@ -161,8 +161,8 @@ int main(void)
   // Task1: num_loops: 12130000; WCET: 2000ms, Period: 8000ms
   // Task2: num_loops: 18195000; WCET: 3000ms, Period: 20000ms
 
-
-
+  vTaskSetMinInvPriority(Task1_Handle, ( UBaseType_t ) 2);
+  vTaskSetWCMaxInvBudget(Task1_Handle, ( TickType_t ) 5);
 
   // Add code for sorted ready list
   // Each element in list should contain parameters: Task Name, WCET, Period, Priority, M_i, V_i, v_i, Completed, Task_Shuffler_Suspend
