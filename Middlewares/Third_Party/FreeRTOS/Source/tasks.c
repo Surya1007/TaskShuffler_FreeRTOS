@@ -151,44 +151,10 @@ configIDLE_TASK_NAME in FreeRTOSConfig.h. */
 
 	/*******************************Modified Source Code **************************************/
 
-	#define taskSELECT_RANDOM_TASK()																	\
-	{																									\
-		UBaseType_t uxTopPriority = uxTopReadyPriority;													\
-		UBaseType_t tempPriority = uxTopReadyPriority;													\
-		UBaseType_t candidate_list[uxTopReadyPriority];													\
-		volatile uint8_t index = 0;																		\
-		/* Loop through the sorted ready list */														\
-		while(tempPriority != 0)																		\
-		{																								\
-			if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )							\
-			{																							\
-			}																							\
-			else																						\
-			{																							\
-				listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ tempPriority ] ) );	\
-				/* If Priority of task >= M_task */														\
-				if (tempPriority >= (pxCurrentTCB -> Min_Inv_Priority))									\
-				{																						\
-					/* Add task to candidate list */													\
-					candidate_list[index] = tempPriority;												\
-					++index;																			\
-				}																						\
-				/* If v_task <= 0 */																	\
-				if ((pxCurrentTCB -> Remaining_Inv_Budget) <= 0)										\
-				{																						\
-					/* Break from the loop */															\
-					break;																				\
-				}																						\
-			}																							\
-			--tempPriority;																				\
-		}																								\
-		/* Select random task from the candidate list */												\
-		uxTopPriority = (rand() % (index - 0 + 1)) + 0;													\
-		/* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of						\
-		the	same priority get an equal share of the processor time. */									\
-		listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) );			\
-		uxTopReadyPriority = uxTopPriority;																\
-	} /* taskSELECT_RANDOM_TASK */
+
+
+
+
 
 	/**************************End Modified Source Code **************************************/
 
@@ -398,10 +364,12 @@ PRIVILEGED_DATA static List_t xPendingReadyList;						/*< Tasks that have been r
 
 /*------------------------Modified Source Code------------------------*/
 TickType_t Time_to_switch                                           = ( TickType_t  ) 0U;
+TickType_t Original_time_to_switch									= ( TickType_t  ) 0U;
 //TickType_t WC_Max_Inv_Budgets[3] 									= {3, 2, 1};
 //TickType_t Remaining_Inv_Budgets[3] 								= {0, 0, 0};
 //UBaseType_t Min_Inv_Priorities[3] 									= {0, 0, 0};
 TaskHandle_t task_running[100];
+UBaseType_t candidate_list[4];
 /*---------------------End Modified Source Code-----------------------*/
 
 #if( INCLUDE_vTaskDelete == 1 )
@@ -455,6 +423,50 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended	= ( UBaseType_t
 #endif
 
 /*lint -restore */
+
+void taskSELECT_RANDOM_TASK()
+{
+	UBaseType_t uxTopPriority = uxCurrentNumberOfTasks - 1;
+	UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
+	volatile uint8_t index = 0;
+	/* Loop through the sorted ready list */
+	while(tempPriority > 0)
+	{
+		if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
+		{
+		}
+		else
+		{
+			listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ tempPriority ] ) );
+			/* If Priority of task >= M_task */
+			if (tempPriority >= (pxCurrentTCB -> Min_Inv_Priority))
+			{
+				/* Add task to candidate list */
+				candidate_list[index] = tempPriority;
+				++index;
+			}
+			/* If v_task <= 0 */
+			if ((pxCurrentTCB -> Remaining_Inv_Budget) <= 0)
+			{
+				/* Break from the loop */
+				break;
+			}
+		}
+		--tempPriority;
+	}
+	/* Select random task from the candidate list */
+	if (index != 0)
+	{
+		index = (rand() % (index - 0)) + 0;
+		uxTopPriority = candidate_list[index];
+	}
+	else
+		uxTopPriority = (UBaseType_t) 0;
+	/* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of
+	the	same priority get an equal share of the processor time. */
+	listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) );
+	uxTopReadyPriority = uxTopPriority;
+}
 
 /*-----------------------------------------------------------*/
 
@@ -2773,9 +2785,9 @@ BaseType_t xSwitchRequired = pdFALSE;
 	traceTASK_INCREMENT_TICK( xTickCount );
 	
 	
-	static uint32_t index = 0;
-	task_running[index] = xTaskGetCurrentTaskHandle();
-	index++;
+	//static uint32_t index = 0;
+	//task_running[index] = xTaskGetCurrentTaskHandle();
+	//index++;
 	
 	
 	if( uxSchedulerSuspended == ( UBaseType_t ) pdFALSE )
@@ -2875,24 +2887,13 @@ BaseType_t xSwitchRequired = pdFALSE;
 							}
 							else
 							{
+								Time_to_switch -= (TickType_t) 1;
 								mtCOVERAGE_TEST_MARKER();
 							}
 							
 						}
 						#endif
 						/*----------------------End Here Modified Source Code---------------------------*/
-						/*
-						{
-							if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
-							{
-								xSwitchRequired = pdTRUE;
-							}
-							else
-							{
-								mtCOVERAGE_TEST_MARKER();
-							}
-						}
-						 */
 						#if (INCLUDE_TaskShuffler == 0)
 						{
 							if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
@@ -3142,12 +3143,27 @@ void vTaskSwitchContext( void )
 		/*---------------------------------------------Modified Source Code----------------------------------------------*/
 		#if (INCLUDE_TaskShuffler == 1)
 		{
+			UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
+			TCB_t * volatile TCB_checking = NULL;
+			while(tempPriority > 0)
+			{
+				if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
+				{
+				}
+				else
+				{
+					listGET_OWNER_OF_NEXT_ENTRY( TCB_checking, &( pxReadyTasksLists[ tempPriority ] ) );
+					(TCB_checking -> Remaining_Inv_Budget) -= (Original_time_to_switch - Time_to_switch);
+				}
+				--tempPriority;
+			}
+			
 			taskSELECT_RANDOM_TASK(); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
 			
-			UBaseType_t tempPriority = uxTopReadyPriority;
+			tempPriority = uxCurrentNumberOfTasks - 1;
 			TickType_t minimum_inversion_budget_remaining = (TickType_t) 10000U;
-			TCB_t * volatile TCB_checking = NULL;
-			while(tempPriority < uxTopReadyPriority)
+			
+			while(tempPriority > uxTopReadyPriority)
 			{
 				if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
 				{
@@ -3162,13 +3178,15 @@ void vTaskSwitchContext( void )
 				}
 				--tempPriority;
 			}
-			if (tempPriority == uxTopReadyPriority)
+			if ((tempPriority == 3) || (minimum_inversion_budget_remaining == (TickType_t) 10000U))
 			{
 				Time_to_switch = (TickType_t) 1U;
+				Original_time_to_switch = Time_to_switch;
 			}
 			else
 			{
 				Time_to_switch = minimum_inversion_budget_remaining;
+				Original_time_to_switch = Time_to_switch;
 			}
 		}
 		#endif
@@ -5423,28 +5441,29 @@ const TickType_t xConstTickCount = xTickCount;
 especially where access to file scope functions and data is needed (for example
 when performing module tests). */
 
+#if (INCLUDE_TaskShuffler == 1)
+	void vTaskSetMinInvPriority(TaskHandle_t xTask, UBaseType_t MIP)
+	{
+		TCB_t *TaskTCB;
+		TaskTCB = prvGetTCBFromHandle(xTask);
+		TaskTCB -> Min_Inv_Priority = MIP;
+	}
 
-void vTaskSetMinInvPriority(TaskHandle_t xTask, UBaseType_t MIP)
-{
-	TCB_t *TaskTCB;
-	TaskTCB = prvGetTCBFromHandle(xTask);
-	TaskTCB -> Min_Inv_Priority = MIP;
-}
+	void vTaskSetWCMaxInvBudget(TaskHandle_t xTask, TickType_t MIB)
+	{
+		TCB_t *TaskTCB;
+		TaskTCB = prvGetTCBFromHandle(xTask);
+		TaskTCB -> WC_Max_Inv_Budget = MIB;
+		vTaskResetRemainingBudget(xTask);
+	}
 
-void vTaskSetWCMaxInvBudget(TaskHandle_t xTask, TickType_t MIB)
-{
-	TCB_t *TaskTCB;
-	TaskTCB = prvGetTCBFromHandle(xTask);
-	TaskTCB -> WC_Max_Inv_Budget = MIB;
-	vTaskResetRemainingBudget(xTask);
-}
-
-void vTaskResetRemainingBudget(TaskHandle_t xTask)
-{
-	TCB_t *TaskTCB;
-	TaskTCB = prvGetTCBFromHandle(xTask);
-	TaskTCB -> Remaining_Inv_Budget = (TaskTCB -> WC_Max_Inv_Budget);
-}
+	void vTaskResetRemainingBudget(TaskHandle_t xTask)
+	{
+		TCB_t *TaskTCB;
+		TaskTCB = prvGetTCBFromHandle(xTask);
+		TaskTCB -> Remaining_Inv_Budget = (TaskTCB -> WC_Max_Inv_Budget);
+	}
+#endif
 
 #ifdef FREERTOS_MODULE_TEST
 	#include "tasks_test_access_functions.h"

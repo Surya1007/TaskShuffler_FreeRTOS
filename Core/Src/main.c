@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 /* USER CODE END Includes */
 
@@ -102,7 +103,7 @@ char cBuffer[sizeof(char)*5];
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	srand(1);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -161,8 +162,16 @@ int main(void)
   // Task1: num_loops: 12130000; WCET: 2000ms, Period: 8000ms
   // Task2: num_loops: 18195000; WCET: 3000ms, Period: 20000ms
 
-  vTaskSetMinInvPriority(Task1_Handle, ( UBaseType_t ) 2);
-  vTaskSetWCMaxInvBudget(Task1_Handle, ( TickType_t ) 5);
+
+  vTaskSetMinInvPriority(Task1_Handle, ( UBaseType_t ) 1);
+  vTaskSetWCMaxInvBudget(Task1_Handle, ( TickType_t ) 4);
+
+  vTaskSetMinInvPriority(Task2_Handle, ( UBaseType_t ) 1);
+  vTaskSetWCMaxInvBudget(Task2_Handle, ( TickType_t ) 3);
+
+  vTaskSetMinInvPriority(Task3_Handle, ( UBaseType_t ) 1);
+  vTaskSetWCMaxInvBudget(Task3_Handle, ( TickType_t ) 4);
+
 
   // Add code for sorted ready list
   // Each element in list should contain parameters: Task Name, WCET, Period, Priority, M_i, V_i, v_i, Completed, Task_Shuffler_Suspend

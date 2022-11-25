@@ -81,19 +81,7 @@ void vApplicationTickHook( void )
    functions can be used (those that end in FromISR()). */
 
 
-	//TaskHandle_t task_running[100];
 
-
-	/*
-	if (xTaskGetTickCountFromISR() > 100)
-	{
-		for (uint8_t i = 0; i < 100; i++)
-		{
-			//pcTaskGetName(task_running[i])
-			printf("\rTime %d: %ld\n", i, uxTaskPriorityGet(task_running[i]));
-		}
-	}
-	*/
 
 
 }
