@@ -163,6 +163,8 @@ int main(void)
   // Task2: num_loops: 18195000; WCET: 3000ms, Period: 20000ms
 
 
+
+
   vTaskSetMinInvPriority(Task1_Handle, ( UBaseType_t ) 1);
   vTaskSetWCMaxInvBudget(Task1_Handle, ( TickType_t ) 4);
 
@@ -171,6 +173,7 @@ int main(void)
 
   vTaskSetMinInvPriority(Task3_Handle, ( UBaseType_t ) 1);
   vTaskSetWCMaxInvBudget(Task3_Handle, ( TickType_t ) 4);
+
 
 
   // Add code for sorted ready list
@@ -774,7 +777,7 @@ void task3Function(void* parameters){
 
         //printf("Execution time of Task 1: %d ms\n", execution_time);
     	vTaskCompleted(Task3_Handle);
-		vTaskDelayUntil(&xLastWaketime, 20);
+		vTaskDelayUntil(&xLastWaketime, 10);
     }
 }
 /* USER CODE END 4 */

@@ -426,50 +426,62 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended	= ( UBaseType_t
 
 /*lint -restore */
 
-void taskSELECT_RANDOM_TASK()
-{
-	UBaseType_t uxTopPriority = uxCurrentNumberOfTasks - 1;
-	UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
-	volatile uint8_t index = 0;
-	/* Loop through the sorted ready list */
-	while(tempPriority >= 0)
+#if ( INCLUDE_TaskShuffler == 1 )
+
+	void taskSELECT_RANDOM_TASK()
 	{
-		if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
+		UBaseType_t uxTopPriority = uxCurrentNumberOfTasks - 1;
+		UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
+		volatile uint8_t index = 0;
+		if (pxCurrentTCB -> Task_Status != 1)
 		{
+			if (pxCurrentTCB -> uxPriority == (UBaseType_t) 0)
+			{
+				( void ) uxListRemove(  &( pxCurrentTCB->xStateListItem ) );
+				prvAddTaskToReadyList(pxCurrentTCB);
+			}
+		}
+		/* Loop through the sorted ready list */
+		while(tempPriority >= 0)
+		{
+			if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
+			{
+			}
+			else
+			{
+				listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ tempPriority ] ) );
+				/* If Priority of task >= M_task */
+				if (tempPriority >= (pxCurrentTCB -> Min_Inv_Priority))
+				{
+					/* Add task to candidate list */
+					candidate_list[index] = tempPriority;
+					++index;
+				}
+				/* If v_task <= 0 */
+				if ((pxCurrentTCB -> Remaining_Inv_Budget) <= 0)
+				{
+					/* Break from the loop */
+					break;
+				}
+			}
+			--tempPriority;
+		}
+		/* Select random task from the candidate list */
+		if (index != 0)
+		{
+			index = (rand() % (index - 0)) + 0;
+			uxTopPriority = candidate_list[index];
 		}
 		else
-		{
-			listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ tempPriority ] ) );
-			/* If Priority of task >= M_task */
-			if (tempPriority >= (pxCurrentTCB -> Min_Inv_Priority))
-			{
-				/* Add task to candidate list */
-				candidate_list[index] = tempPriority;
-				++index;
-			}
-			/* If v_task <= 0 */
-			if ((pxCurrentTCB -> Remaining_Inv_Budget) <= 0)
-			{
-				/* Break from the loop */
-				break;
-			}
-		}
-		--tempPriority;
-	}
-	/* Select random task from the candidate list */
-	if (index != 0)
-	{
-		index = (rand() % (index - 0)) + 0;
-		uxTopPriority = candidate_list[index];
-	}
-	else
-		uxTopPriority = (UBaseType_t) 0;
-	/* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of
-	the	same priority get an equal share of the processor time. */
-	listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) );
-	uxTopReadyPriority = uxTopPriority;
-}
+			uxTopPriority = (UBaseType_t) 0;
+		/* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of
+		 the	same priority get an equal share of the processor time. */
+		listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) );
+		uxTopReadyPriority = uxTopPriority;
 
+	}
+
+#endif
 /*-----------------------------------------------------------*/
 
 /* Callback function prototypes. --------------------------*/
@@ -3163,14 +3175,10 @@ void vTaskSwitchContext( void )
 			UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
 			TCB_t * volatile TCB_checking = NULL;
 			//prvGetTCBFromHandle();
-			if (pxCurrentTCB -> Task_Status == 1)
+
+			while(tempPriority >= uxTopReadyPriority)
 			{
-				if (pxCurrentTCB -> uxPriority == (UBaseType_t) 0)
-					prvAddTaskToReadyList(pxCurrentTCB);
-			}
-			if (uxTopReadyPriority != (UBaseType_t) 0)
-			{
-				while(tempPriority >= uxTopReadyPriority)
+				if (tempPriority != (UBaseType_t) 0)
 				{
 					if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
 					{
@@ -3180,8 +3188,10 @@ void vTaskSwitchContext( void )
 						listGET_OWNER_OF_NEXT_ENTRY( TCB_checking, &( pxReadyTasksLists[ tempPriority ] ) );
 						(TCB_checking -> Remaining_Inv_Budget) -= (int) (Original_time_to_switch - Time_to_switch);
 					}
-					--tempPriority;
 				}
+				--tempPriority;
+				if (tempPriority == 0)
+					break;
 			}
 			
 			taskSELECT_RANDOM_TASK(); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
