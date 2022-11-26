@@ -91,7 +91,7 @@ float beta = 0;
 float gammat = 0;
 
 char cBuffer[sizeof(char)*5];
-
+TaskHandle_t Task1_Handle, Task2_Handle, Task3_Handle;
 
 
 /* USER CODE END 0 */
@@ -153,7 +153,7 @@ int main(void)
   /* creation of defaultTask */
 
   /* USER CODE BEGIN RTOS_THREADS */
-  TaskHandle_t Task1_Handle, Task2_Handle, Task3_Handle;
+
   xTaskCreate(task1Function, "Task 1", 128, NULL, 3, &Task1_Handle);
   xTaskCreate(task2Function, "Task 2", 128, NULL, 2, &Task2_Handle);
   xTaskCreate(task3Function, "Task 3", 128, NULL, 1, &Task3_Handle);
@@ -677,6 +677,7 @@ void task1Function(void* parameters){
     // Task1: num_loops: 9000; WCET: 2 tick, Period: 8 ticks
     // Task2: num_loops: 12840; WCET: 3 ticks, Period: 20 ticks
     while(1){
+    	vTaskStarted(Task1_Handle);
     	//start_time = xTaskGetTickCount();
     	for(uint32_t i = 0; i < num_loops; i++)
     	{
@@ -696,6 +697,7 @@ void task1Function(void* parameters){
     	*/
 
         //printf("Execution time of Task 1: %d ms\n", execution_time);
+    	vTaskCompleted(Task1_Handle);
     	vTaskDelayUntil(&xLastWaketime, 5);
     }
 }
@@ -713,6 +715,7 @@ void task2Function(void* parameters){
     //TickType_t maxi = 0;
     //TickType_t mini = 100000000;
     while(1){
+    	vTaskStarted(Task2_Handle);
     	//start_time = xTaskGetTickCount();
     	for(uint32_t i = 0; i < num_loops; i++)
     	{
@@ -733,6 +736,7 @@ void task2Function(void* parameters){
 
 
         //printf("Execution time of Task 1: %d ms\n", execution_time);
+    	vTaskCompleted(Task2_Handle);
 		vTaskDelayUntil(&xLastWaketime, 8);
     }
 }
@@ -749,6 +753,7 @@ void task3Function(void* parameters){
     //TickType_t maxi = 0;
     //TickType_t mini = 100000000;
     while(1){
+    	vTaskStarted(Task3_Handle);
     	//start_time = xTaskGetTickCount();
     	for(uint32_t i = 0; i < num_loops; i++)
     	{
@@ -768,29 +773,13 @@ void task3Function(void* parameters){
 		*/
 
         //printf("Execution time of Task 1: %d ms\n", execution_time);
+    	vTaskCompleted(Task3_Handle);
 		vTaskDelayUntil(&xLastWaketime, 20);
     }
 }
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
 
-
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-  }
-  /* USER CODE END 5 */
-}
 
 /**
   * @brief  Period elapsed callback in non blocking mode

@@ -1169,8 +1169,9 @@ typedef struct xSTATIC_TCB
 	
 	#if ( INCLUDE_TaskShuffler == 1 )
 		TickType_t	uDummy23;
-		TickType_t uDummy24;
+		int uDummy24;
 		UBaseType_t uDummy25;
+		uint8_t uDummy26;
 	#endif
 } StaticTask_t;
 

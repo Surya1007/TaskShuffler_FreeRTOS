@@ -337,8 +337,9 @@ typedef struct tskTaskControlBlock 			/* The old naming convention is used to pr
 
 	#if ( INCLUDE_TaskShuffler == 1)
 		TickType_t WC_Max_Inv_Budget;
-		volatile TickType_t Remaining_Inv_Budget;
+		volatile int Remaining_Inv_Budget;
 		UBaseType_t Min_Inv_Priority;
+		uint8_t Task_Status;
 	#endif
 	
 } tskTCB;
@@ -370,7 +371,7 @@ TickType_t Original_time_to_switch									= ( TickType_t  ) 0U;
 //TickType_t Remaining_Inv_Budgets[3] 								= {0, 0, 0};
 //UBaseType_t Min_Inv_Priorities[3] 									= {0, 0, 0};
 TaskHandle_t task_running[100];
-UBaseType_t candidate_list[3];
+UBaseType_t candidate_list[4];
 /*---------------------End Modified Source Code-----------------------*/
 
 #if( INCLUDE_vTaskDelete == 1 )
@@ -2294,14 +2295,23 @@ BaseType_t xAlreadyYielded = pdFALSE;
 
 					/* If the moved task has a priority higher than the current
 					task then a yield must be performed. */
-					if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+					#if (INCLUDE_TaskShuffler == 1)
 					{
 						xYieldPending = pdTRUE;
 					}
-					else
+					#endif
+					#if (INCLUDE_TaskShuffler == 0)
 					{
-						mtCOVERAGE_TEST_MARKER();
+						if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+						{
+							xYieldPending = pdTRUE;
+						}
+						else
+						{
+							mtCOVERAGE_TEST_MARKER();
+						}
 					}
+					#endif
 				}
 
 				if( pxTCB != NULL )
@@ -2815,7 +2825,7 @@ BaseType_t xSwitchRequired = pdFALSE;
 		the	queue in the order of their wake time - meaning once one task
 		has been found whose block time has not expired there is no need to
 		look any further down the list. */
-		if( (xConstTickCount >= xNextTaskUnblockTime) || (xConstTickCount >= (global_time_at_which_last_decision_was_taken + Original_time_to_switch)) )
+		if( (xConstTickCount >= xNextTaskUnblockTime) )
 		{
 			for( ;; )
 			{
@@ -2883,15 +2893,7 @@ BaseType_t xSwitchRequired = pdFALSE;
 						/*-----------------------------Modified Source Code-----------------------------*/
 						#if (INCLUDE_TaskShuffler == 1)
 						{
-							if (Time_to_switch <= 0)
-							{
-								xSwitchRequired = pdTRUE;
-							}
-							else
-							{
-								mtCOVERAGE_TEST_MARKER();
-							}
-							
+							xSwitchRequired = pdTRUE;
 						}
 						#endif
 						/*----------------------End Here Modified Source Code---------------------------*/
@@ -2956,6 +2958,19 @@ BaseType_t xSwitchRequired = pdFALSE;
 			}
 		}
 		#endif /* configUSE_PREEMPTION */
+		
+		#if (INCLUDE_TaskShuffler == 1)
+		{
+			if (Time_to_switch <= 0)
+			{
+				xSwitchRequired = pdTRUE;
+			}
+			else
+			{
+				mtCOVERAGE_TEST_MARKER();
+			}
+		}
+		#endif
 	}
 	else
 	{
@@ -3147,17 +3162,26 @@ void vTaskSwitchContext( void )
 			const TickType_t current_time = xTickCount;
 			UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
 			TCB_t * volatile TCB_checking = NULL;
-			while(tempPriority > 0)
+			//prvGetTCBFromHandle();
+			if (pxCurrentTCB -> Task_Status == 1)
 			{
-				if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
+				if (pxCurrentTCB -> uxPriority == (UBaseType_t) 0)
+					prvAddTaskToReadyList(pxCurrentTCB);
+			}
+			if (uxTopReadyPriority != (UBaseType_t) 0)
+			{
+				while(tempPriority >= uxTopReadyPriority)
 				{
+					if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
+					{
+					}
+					else
+					{
+						listGET_OWNER_OF_NEXT_ENTRY( TCB_checking, &( pxReadyTasksLists[ tempPriority ] ) );
+						(TCB_checking -> Remaining_Inv_Budget) -= (int) (Original_time_to_switch - Time_to_switch);
+					}
+					--tempPriority;
 				}
-				else
-				{
-					listGET_OWNER_OF_NEXT_ENTRY( TCB_checking, &( pxReadyTasksLists[ tempPriority ] ) );
-					(TCB_checking -> Remaining_Inv_Budget) -= (Original_time_to_switch - Time_to_switch);
-				}
-				--tempPriority;
 			}
 			
 			taskSELECT_RANDOM_TASK(); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
@@ -3173,9 +3197,9 @@ void vTaskSwitchContext( void )
 				else
 				{
 					listGET_OWNER_OF_NEXT_ENTRY( TCB_checking, &( pxReadyTasksLists[ tempPriority ] ) );
-					if ((TCB_checking -> Remaining_Inv_Budget) < minimum_inversion_budget_remaining)
+					if ((TCB_checking -> Remaining_Inv_Budget) < (int) (minimum_inversion_budget_remaining))
 					{
-						minimum_inversion_budget_remaining = (TCB_checking -> Remaining_Inv_Budget);//Remaining_Inv_Budgets[tempPriority];
+						minimum_inversion_budget_remaining = (TickType_t) (TCB_checking -> Remaining_Inv_Budget);//Remaining_Inv_Budgets[tempPriority];
 					}
 				}
 				--tempPriority;
@@ -3189,6 +3213,7 @@ void vTaskSwitchContext( void )
 			}
 			else
 			{
+				// For complete randomness in time, select a random value in between 1, min_inv_budget_remaining
 				Time_to_switch = minimum_inversion_budget_remaining;
 				Original_time_to_switch = Time_to_switch;
 				global_time_at_which_last_decision_was_taken = current_time;
@@ -5466,7 +5491,22 @@ when performing module tests). */
 	{
 		TCB_t *TaskTCB;
 		TaskTCB = prvGetTCBFromHandle(xTask);
-		TaskTCB -> Remaining_Inv_Budget = (TaskTCB -> WC_Max_Inv_Budget);
+		TaskTCB -> Remaining_Inv_Budget = (int) (TaskTCB -> WC_Max_Inv_Budget);
+	}
+
+	void vTaskStarted(TaskHandle_t xTask)
+	{
+		TCB_t *TaskTCB;
+		TaskTCB = prvGetTCBFromHandle(xTask);
+		TaskTCB -> Task_Status = 1;
+		vTaskResetRemainingBudget(xTask);
+	}
+
+	void vTaskCompleted(TaskHandle_t xTask)
+	{
+		TCB_t *TaskTCB;
+		TaskTCB = prvGetTCBFromHandle(xTask);
+		TaskTCB -> Task_Status = 0;
 	}
 #endif
 
