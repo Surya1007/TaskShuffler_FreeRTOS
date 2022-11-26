@@ -364,12 +364,13 @@ PRIVILEGED_DATA static List_t xPendingReadyList;						/*< Tasks that have been r
 
 /*------------------------Modified Source Code------------------------*/
 TickType_t Time_to_switch                                           = ( TickType_t  ) 0U;
+TickType_t global_time_at_which_last_decision_was_taken				= ( TickType_t  ) 0U;
 TickType_t Original_time_to_switch									= ( TickType_t  ) 0U;
 //TickType_t WC_Max_Inv_Budgets[3] 									= {3, 2, 1};
 //TickType_t Remaining_Inv_Budgets[3] 								= {0, 0, 0};
 //UBaseType_t Min_Inv_Priorities[3] 									= {0, 0, 0};
 TaskHandle_t task_running[100];
-UBaseType_t candidate_list[4];
+UBaseType_t candidate_list[3];
 /*---------------------End Modified Source Code-----------------------*/
 
 #if( INCLUDE_vTaskDelete == 1 )
@@ -430,7 +431,7 @@ void taskSELECT_RANDOM_TASK()
 	UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
 	volatile uint8_t index = 0;
 	/* Loop through the sorted ready list */
-	while(tempPriority > 0)
+	while(tempPriority >= 0)
 	{
 		if ( listLIST_IS_EMPTY( &( pxReadyTasksLists[ tempPriority ] ) ) )
 		{
@@ -2795,6 +2796,7 @@ BaseType_t xSwitchRequired = pdFALSE;
 		/* Minor optimisation.  The tick count cannot change in this
 		block. */
 		const TickType_t xConstTickCount = xTickCount + ( TickType_t ) 1;
+		Time_to_switch -= (TickType_t) 1;
 
 		/* Increment the RTOS tick, switching the delayed and overflowed
 		delayed lists if it wraps to 0. */
@@ -2813,7 +2815,7 @@ BaseType_t xSwitchRequired = pdFALSE;
 		the	queue in the order of their wake time - meaning once one task
 		has been found whose block time has not expired there is no need to
 		look any further down the list. */
-		if( xConstTickCount >= xNextTaskUnblockTime )
+		if( (xConstTickCount >= xNextTaskUnblockTime) || (xConstTickCount >= (global_time_at_which_last_decision_was_taken + Original_time_to_switch)) )
 		{
 			for( ;; )
 			{
@@ -2887,7 +2889,6 @@ BaseType_t xSwitchRequired = pdFALSE;
 							}
 							else
 							{
-								Time_to_switch -= (TickType_t) 1;
 								mtCOVERAGE_TEST_MARKER();
 							}
 							
@@ -3143,6 +3144,7 @@ void vTaskSwitchContext( void )
 		/*---------------------------------------------Modified Source Code----------------------------------------------*/
 		#if (INCLUDE_TaskShuffler == 1)
 		{
+			const TickType_t current_time = xTickCount;
 			UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
 			TCB_t * volatile TCB_checking = NULL;
 			while(tempPriority > 0)
@@ -3178,15 +3180,18 @@ void vTaskSwitchContext( void )
 				}
 				--tempPriority;
 			}
+			
 			if ((tempPriority == 3) || (minimum_inversion_budget_remaining == (TickType_t) 10000U))
 			{
 				Time_to_switch = (TickType_t) 1U;
 				Original_time_to_switch = Time_to_switch;
+				global_time_at_which_last_decision_was_taken = current_time;
 			}
 			else
 			{
 				Time_to_switch = minimum_inversion_budget_remaining;
 				Original_time_to_switch = Time_to_switch;
+				global_time_at_which_last_decision_was_taken = current_time;
 			}
 		}
 		#endif
