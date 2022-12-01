@@ -739,8 +739,12 @@ uint32_t ulPreviousMask;
 
 	ulPreviousMask = portSET_INTERRUPT_MASK_FROM_ISR();
 	{
-		//TickType_t current_time = xTaskGetTickCountFromISR();
-		/* Increment the RTOS tick. */
+		TickType_t current_time = xTaskGetTickCountFromISR();
+		if (current_time == (TickType_t) 40)
+		{
+			vTaskSuspendAll();
+		}
+
 		if( xTaskIncrementTick() != pdFALSE )
 		{
 			/* Pend a context switch. */

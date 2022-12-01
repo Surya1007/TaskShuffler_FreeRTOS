@@ -86,12 +86,10 @@ int _write(int file, char* ptr, int len){
 	return -1;
 }
 
-float alpha = 0;
-float beta = 0;
-float gammat = 0;
 
-char cBuffer[sizeof(char)*5];
 TaskHandle_t Task1_Handle, Task2_Handle, Task3_Handle;
+uint32_t Start_time, End_time, Duration;
+
 
 
 /* USER CODE END 0 */
@@ -103,7 +101,7 @@ TaskHandle_t Task1_Handle, Task2_Handle, Task3_Handle;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	srand(1);
+	//srand(2);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -164,7 +162,7 @@ int main(void)
 
 
 
-
+  /*
   vTaskSetMinInvPriority(Task1_Handle, ( UBaseType_t ) 1);
   vTaskSetWCMaxInvBudget(Task1_Handle, ( TickType_t ) 4);
 
@@ -173,6 +171,7 @@ int main(void)
 
   vTaskSetMinInvPriority(Task3_Handle, ( UBaseType_t ) 1);
   vTaskSetWCMaxInvBudget(Task3_Handle, ( TickType_t ) 4);
+  */
 
 
 
@@ -188,7 +187,9 @@ int main(void)
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
+  Start_time = HAL_GetTick();
   vTaskStartScheduler();
+
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
@@ -666,20 +667,15 @@ static void MX_GPIO_Init(void)
 
 void task1Function(void* parameters){
 	/*Initializing counting variable*/
-    //TickType_t start_time, end_time, execution_time;
-    /*
-     e1 = 7
-     release time = 4
-     deadline = 13
-     */
-    //TickType_t maxi = 0;
-    //TickType_t mini = 100000000;
+
     TickType_t xLastWaketime = xTaskGetTickCount();
     uint32_t num_loops = 6065;
     // Task0: num_loops: 6065; WCET: 1 tick, Period: 5 ticks
     // Task1: num_loops: 9000; WCET: 2 tick, Period: 8 ticks
-    // Task2: num_loops: 12840; WCET: 3 ticks, Period: 20 ticks
+    // Task2: num_loops: 12840; WCET: 3 ticks, Period: 10 ticks
     while(1){
+
+
     	vTaskStarted(Task1_Handle);
     	//start_time = xTaskGetTickCount();
     	for(uint32_t i = 0; i < num_loops; i++)
@@ -700,23 +696,17 @@ void task1Function(void* parameters){
     	*/
 
         //printf("Execution time of Task 1: %d ms\n", execution_time);
+
     	vTaskCompleted(Task1_Handle);
+
     	vTaskDelayUntil(&xLastWaketime, 5);
     }
 }
 /* USER CODE END Header_StartDefaultTask */
 
 void task2Function(void* parameters){
-    //TickType_t start_time, end_time, execution_time;
-    /*
-     e2 = 2
-     release time = 9
-     deadline = 14
-     */
     TickType_t xLastWaketime = xTaskGetTickCount();
     uint32_t num_loops = 9000;
-    //TickType_t maxi = 0;
-    //TickType_t mini = 100000000;
     while(1){
     	vTaskStarted(Task2_Handle);
     	//start_time = xTaskGetTickCount();
@@ -745,17 +735,13 @@ void task2Function(void* parameters){
 }
 
 void task3Function(void* parameters){
-    //TickType_t start_time, end_time, execution_time;
-    /*
-     e2 = 2
-     release time = 9
-     deadline = 14
-     */
+
     TickType_t xLastWaketime = xTaskGetTickCount();
     uint32_t num_loops = 12840;
-    //TickType_t maxi = 0;
-    //TickType_t mini = 100000000;
+
+
     while(1){
+
     	vTaskStarted(Task3_Handle);
     	//start_time = xTaskGetTickCount();
     	for(uint32_t i = 0; i < num_loops; i++)
@@ -776,6 +762,7 @@ void task3Function(void* parameters){
 		*/
 
         //printf("Execution time of Task 1: %d ms\n", execution_time);
+
     	vTaskCompleted(Task3_Handle);
 		vTaskDelayUntil(&xLastWaketime, 10);
     }

@@ -370,8 +370,10 @@ TickType_t Original_time_to_switch									= ( TickType_t  ) 0U;
 //TickType_t WC_Max_Inv_Budgets[3] 									= {3, 2, 1};
 //TickType_t Remaining_Inv_Budgets[3] 								= {0, 0, 0};
 //UBaseType_t Min_Inv_Priorities[3] 									= {0, 0, 0};
-TaskHandle_t task_running[100];
-UBaseType_t candidate_list[4];
+UBaseType_t candidate_list[ configMAX_PRIORITIES ];
+int timing_index = 0;
+TickType_t Timing[100];
+UBaseType_t Running_Priority[100];
 /*---------------------End Modified Source Code-----------------------*/
 
 #if( INCLUDE_vTaskDelete == 1 )
@@ -433,9 +435,9 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended	= ( UBaseType_t
 		UBaseType_t uxTopPriority = uxCurrentNumberOfTasks - 1;
 		UBaseType_t tempPriority = uxCurrentNumberOfTasks - 1;
 		volatile uint8_t index = 0;
-		if (pxCurrentTCB -> Task_Status != 1)
+		if (pxCurrentTCB -> Task_Status == 1)
 		{
-			if (pxCurrentTCB -> uxPriority == (UBaseType_t) 0)
+			if (pxCurrentTCB -> uxPriority != (UBaseType_t) 0)
 			{
 				( void ) uxListRemove(  &( pxCurrentTCB->xStateListItem ) );
 				prvAddTaskToReadyList(pxCurrentTCB);
@@ -478,7 +480,6 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended	= ( UBaseType_t
 		 the	same priority get an equal share of the processor time. */
 		listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) );
 		uxTopReadyPriority = uxTopPriority;
-
 	}
 
 #endif
@@ -2808,10 +2809,11 @@ BaseType_t xSwitchRequired = pdFALSE;
 	traceTASK_INCREMENT_TICK( xTickCount );
 	
 	
-	//static uint32_t index = 0;
-	//task_running[index] = xTaskGetCurrentTaskHandle();
-	//index++;
-	
+	Timing[timing_index] = xTickCount;
+	Running_Priority[timing_index] = uxTopReadyPriority;
+	timing_index++;
+
+
 	
 	if( uxSchedulerSuspended == ( UBaseType_t ) pdFALSE )
 	{
@@ -3217,6 +3219,7 @@ void vTaskSwitchContext( void )
 			
 			if ((tempPriority == 3) || (minimum_inversion_budget_remaining == (TickType_t) 10000U))
 			{
+
 				Time_to_switch = (TickType_t) 1U;
 				Original_time_to_switch = Time_to_switch;
 				global_time_at_which_last_decision_was_taken = current_time;
@@ -3224,7 +3227,7 @@ void vTaskSwitchContext( void )
 			else
 			{
 				// For complete randomness in time, select a random value in between 1, min_inv_budget_remaining
-				Time_to_switch = minimum_inversion_budget_remaining;
+				Time_to_switch = (rand() % (minimum_inversion_budget_remaining)) + 1;;
 				Original_time_to_switch = Time_to_switch;
 				global_time_at_which_last_decision_was_taken = current_time;
 			}
